@@ -5,7 +5,22 @@ import logging
 
 log = logging.getLogger(__name__)
 
-class S3Service():
+# -------------------------
+# Singleton metaclass
+# -------------------------
+class SingletonMeta(type):
+    """Thread-safe Singleton metaclass."""
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super().__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+# -------------------------
+# S3 Service
+# -------------------------
+class S3Service(metaclass=SingletonMeta):
     def __init__(self):
         session = boto3.session.Session(region_name=settings.aws_region)
         kwargs = {
@@ -39,3 +54,10 @@ class S3Service():
     def delete(self, key: str):
         self.client.delete_object(Bucket=settings.s3_bucket, Key=key)
         log.debug("Deleted s3://%s/%s", settings.s3_bucket, key)
+
+# -------------------------
+# DynamoDB Service
+# -------------------------
+class DynamooDBService(metaclass=SingletonMeta):
+    def __init__(self):
+        print("initiaze dynamodb service")
