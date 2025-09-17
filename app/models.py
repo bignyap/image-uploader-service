@@ -18,6 +18,18 @@ class ImageMeta(BaseModel):
     size: int
     uploaded_at: datetime
 
+class ImageItem(BaseModel):
+    image_id: str
+    user_id: str
+    title: Optional[str]
+    description: Optional[str]
+    tags: List[str]
+    filename: str
+    content_type: str
+    size: int
+    s3_key: str
+    uploaded_at: datetime
+
 class UploadResponse(BaseModel):
     image_id: str
     s3_key: str
@@ -25,5 +37,5 @@ class UploadResponse(BaseModel):
     uploaded_at: datetime
 
 class ListImagesResponse(BaseModel):
-    images: List[ImageMeta]
+    images: List[ImageItem]
     next_token: Optional[str] = None

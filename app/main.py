@@ -6,14 +6,12 @@ from contextlib import asynccontextmanager
 import uvicorn
 from io import BytesIO
 import logging
-import json
 
-from .storage import S3Service, DynamoDBService
-from .dependencies import get_s3_service, get_dynamodb_service
-from .settings import settings
-from .repository import save_image_and_meta, list_images, get_image_meta, delete_image
-from . import repository
-from .models import UploadResponse, ListImagesResponse, ImageItem
+from app.storage import S3Service, DynamoDBService
+from app.dependencies import get_s3_service, get_dynamodb_service
+from app.settings import settings
+from app.repository import save_image_and_meta, fetch_images, get_image_meta, remove_image
+from app.models import ImageItem, UploadResponse, ListImagesResponse
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("image-service")
@@ -71,13 +69,12 @@ async def upload_image(
         raise HTTPException(status_code=500, detail=str(exc))
 
 @app.get("/images", response_model=ListImagesResponse)
-def list_images(
+def list_images_handler(
     user_id: Optional[str] = Query(None),
     tag: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=100),
     exclusive_start_key: Optional[str] = Query(None),
-    db: DynamoDBService = Depends(get_dynamodb_service),
-    s3: S3Service = Depends(get_s3_service)
+    db: DynamoDBService = Depends(get_dynamodb_service)
 ):
     eks = None
     if exclusive_start_key:
@@ -87,7 +84,7 @@ def list_images(
             eks = json.loads(exclusive_start_key)
         except Exception:
             raise HTTPException(status_code=400, detail="invalid exclusive_start_key")
-    resp = list_images(db=db, s3=s3, user_id=user_id, tag=tag, limit=limit, exclusive_start_key=eks)
+    resp = fetch_images(db=db, user_id=user_id, tag=tag, limit=limit, exclusive_start_key=eks)
     items = resp.get("Items", [])
     # map items
     def to_item(it):
@@ -105,7 +102,7 @@ def list_images(
         )
     images = [to_item(it) for it in items]
     next_token = resp.get("LastEvaluatedKey")
-    return ListImagesResponse(items=images, next_token=json.dumps(next_token) if next_token else None)
+    return ListImagesResponse(images=images, next_token=json.dumps(next_token) if next_token else None)
 
 @app.get("/images/{image_id}")
 def get_image(
@@ -127,7 +124,7 @@ def delete_image(
     db: DynamoDBService = Depends(get_dynamodb_service),
     s3: S3Service = Depends(get_s3_service)
 ):
-    ok = delete_image(db, s3, image_id)
+    ok = remove_image(db, s3, image_id)
     if not ok:
         raise HTTPException(status_code=404, detail="image not found")
     return JSONResponse(status_code=204, content=None)

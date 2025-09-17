@@ -50,7 +50,7 @@ def image_id_key() -> str:
     return str(uuid.uuid4())
 
 
-def list_images(
+def fetch_images(
     db: DynamoDBService,
     user_id: Optional[str] = None, 
     tag: Optional[str] = None, 
@@ -82,7 +82,7 @@ def get_image_meta(db: DynamoDBService, image_id: str):
     item = db.get_metadata(image_id)
     return item
 
-def delete_image( 
+def remove_image( 
     db: DynamoDBService,
     s3: S3Service,
     image_id: str

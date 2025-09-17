@@ -58,6 +58,9 @@ class S3Service:
     def delete(self, key: str):
         self.client.delete_object(Bucket=settings.s3_bucket, Key=key)
         log.debug("Deleted s3://%s/%s", settings.s3_bucket, key)
+    
+    def close(self):
+        log.info("Closed S3 client")
 
 # -------------------------
 # DynamoDB Service
@@ -118,3 +121,27 @@ class DynamoDBService:
         table = self.resource.Table(settings.dynamodb_table)
         table.delete_item(Key={"image_id": image_id})
         log.debug("Deleted metadata %s", image_id)
+
+    def scan_metadata(
+        self,
+        filter_expression: Optional[Dict[str, Any]] = None,
+        limit: int = 50,
+        exclusive_start_key: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        table = self.resource.Table(settings.dynamodb_table)
+        scan_kwargs = {"Limit": limit}
+        if exclusive_start_key:
+            scan_kwargs["ExclusiveStartKey"] = exclusive_start_key
+        if filter_expression:
+            from boto3.dynamodb.conditions import Attr
+
+            filters = None
+            for k, v in filter_expression.items():
+                cond = Attr(k).eq(v)
+                filters = cond if filters is None else filters & cond
+            if filters is not None:
+                scan_kwargs["FilterExpression"] = filters
+        return table.scan(**scan_kwargs)
+    
+    def close(self):
+        log.info("Closed DynamoDB resource")
