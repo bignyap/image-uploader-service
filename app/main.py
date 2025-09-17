@@ -1,15 +1,19 @@
-from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException, Query
+from fastapi.responses import RedirectResponse, JSONResponse
+from datetime import datetime
 from typing import Optional
 from contextlib import asynccontextmanager
 import uvicorn
 from io import BytesIO
 import logging
+import json
 
 from .storage import S3Service, DynamoDBService
 from .dependencies import get_s3_service, get_dynamodb_service
 from .settings import settings
-from .repository import save_image_and_meta
-from .models import UploadResponse
+from .repository import save_image_and_meta, list_images, get_image_meta, delete_image
+from . import repository
+from .models import UploadResponse, ListImagesResponse, ImageItem
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("image-service")
@@ -26,15 +30,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_title, lifespan=lifespan)
 
-@app.post("/images")
+@app.post("/images", response_model=UploadResponse, status_code=201)
 async def upload_image(
     file: UploadFile = File(...),
     user_id: str = Form(...),
     title: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
-    tags: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),  # Comma Separated Values
     db: DynamoDBService = Depends(get_dynamodb_service),
-    s3: S3Service = Depends(get_s3_service) # Comma Separated Values
+    s3: S3Service = Depends(get_s3_service)
 ):
     # Split the tags
     tags_list = []
@@ -45,6 +49,8 @@ async def upload_image(
         contents = await file.read()
         fileobj = BytesIO(contents)
         image = save_image_and_meta(
+            db=db,
+            s3=s3,
             fileobj=fileobj,
             filename=file.filename,
             content_type=file.content_type or "application/octet-stream",
@@ -52,7 +58,7 @@ async def upload_image(
             user_id=user_id,
             title=title,
             description=description,
-            tags=tags_list,
+            tags=tags_list
         )
         return UploadResponse(
             image_id=image.image_id,
@@ -64,13 +70,67 @@ async def upload_image(
         log.exception("Upload failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
-@app.get("/images")
-async def list_images(db: DynamoDBService = Depends(get_dynamodb_service)):
-    return {"images": []}
+@app.get("/images", response_model=ListImagesResponse)
+def list_images(
+    user_id: Optional[str] = Query(None),
+    tag: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    exclusive_start_key: Optional[str] = Query(None),
+    db: DynamoDBService = Depends(get_dynamodb_service),
+    s3: S3Service = Depends(get_s3_service)
+):
+    eks = None
+    if exclusive_start_key:
+        # expecting JSON-encoded dict for ExclusiveStartKey
+        import json
+        try:
+            eks = json.loads(exclusive_start_key)
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid exclusive_start_key")
+    resp = list_images(db=db, s3=s3, user_id=user_id, tag=tag, limit=limit, exclusive_start_key=eks)
+    items = resp.get("Items", [])
+    # map items
+    def to_item(it):
+        return ImageItem(
+            image_id=it["image_id"],
+            user_id=it["user_id"],
+            title=it.get("title"),
+            description=it.get("description"),
+            tags=it.get("tags", []),
+            filename=it.get("filename"),
+            content_type=it.get("content_type"),
+            size=int(it.get("size", 0)),
+            s3_key=it["s3_key"],
+            uploaded_at=datetime.fromisoformat(it["uploaded_at"]),
+        )
+    images = [to_item(it) for it in items]
+    next_token = resp.get("LastEvaluatedKey")
+    return ListImagesResponse(items=images, next_token=json.dumps(next_token) if next_token else None)
 
-@app.delete("/images/{image_id}")
-async def delete_image(db: DynamoDBService = Depends(get_dynamodb_service)):
-    return {"message": "Deleted"}
+@app.get("/images/{image_id}")
+def get_image(
+    image_id: str,
+    db: DynamoDBService = Depends(get_dynamodb_service),
+    s3: S3Service = Depends(get_s3_service)
+):
+    meta = get_image_meta(db, image_id)
+    if not meta:
+        raise HTTPException(status_code=404, detail="image not found")
+    # generate presigned url
+    url = s3.generate_presigned_url(meta["s3_key"])
+    # return redirect to the presigned URL
+    return RedirectResponse(url)
+
+@app.delete("/images/{image_id}", status_code=204)
+def delete_image(
+    image_id: str,
+    db: DynamoDBService = Depends(get_dynamodb_service),
+    s3: S3Service = Depends(get_s3_service)
+):
+    ok = delete_image(db, s3, image_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="image not found")
+    return JSONResponse(status_code=204, content=None)
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

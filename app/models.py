@@ -23,3 +23,7 @@ class UploadResponse(BaseModel):
     s3_key: str
     filename: str
     uploaded_at: datetime
+
+class ListImagesResponse(BaseModel):
+    images: List[ImageMeta]
+    next_token: Optional[str] = None
