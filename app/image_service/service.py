@@ -1,13 +1,14 @@
 from datetime import datetime, timezone
 from typing import List, Dict, Optional
 import logging
-from . import storage
-from .models import ImageMeta
 from datetime import datetime, timezone
 import uuid
+from boto3.dynamodb.conditions import Attr
 
-from .storage import S3Service, DynamoDBService
-from .settings import settings
+from app.storage.dynamodb import DynamoDBService
+from app.storage.s3 import S3Service
+from app.image_service.models import ImageMeta
+from app.settings import settings
 
 log = logging.getLogger(__name__)
 
@@ -63,8 +64,7 @@ def fetch_images(
     if tag:
         # Dynamo doesn't support searching inside list easily without GSI; scan with filter expression on tags contains
         # We'll do a scan with condition contains(tags, tag)
-        from boto3.dynamodb.conditions import Attr
-        table = storage.dynamodb_resource().Table(settings.dynamodb_table)
+        table = db.resource.Table(settings.dynamodb_table)
         scan_kwargs = {"Limit": limit}
         if exclusive_start_key:
             scan_kwargs["ExclusiveStartKey"] = exclusive_start_key

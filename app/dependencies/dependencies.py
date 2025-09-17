@@ -1,5 +1,6 @@
-from fastapi import Request, Depends
-from .storage import S3Service, DynamoDBService
+from fastapi import Request
+from app.storage.dynamodb import DynamoDBService
+from app.storage.s3 import S3Service
 
 def get_s3_service(request: Request) -> S3Service:
     """Dependency provider for S3Service"""

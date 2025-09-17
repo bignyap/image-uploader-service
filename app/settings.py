@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     s3_bucket: str = Field("image-service-bucket", env="S3_BUCKET")
     dynamodb_table: str = Field("Images", env="DYNAMODB_TABLE")
     aws_endpoint_url: Optional[str] = Field(None, env="AWS_ENDPOINT_URL")
+    external_endpoint: Optional[str] = Field(None, env="AWS_EXTERNAL_ENDPOINT_URL")  # for presigned URLs
     presign_expire_seconds: int = Field(900, env="PRESIGN_EXPIRE_SECONDS")
 
     aws_access_key_id: str = Field("test", env="AWS_ACCESS_KEY_ID")

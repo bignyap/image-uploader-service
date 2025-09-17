@@ -22,17 +22,17 @@ docker compose down; docker compose up -d
 - Upload Image
 
 ```bash
-curl -X POST "http://localhost:8000/images" -H "accept: application/json" -F "file=@./gif.gif;type=image/gif" -F "user_id=user123" -F "title=My Holiday Photo" -F "description=Taken at the beach" -F "tags=beach,holiday,sunset"
+curl -X POST "http://localhost:8000/api/v1/images" -H "accept: application/json" -F "file=@./gif.gif;type=image/gif" -F "user_id=user123" -F "title=My Holiday Photo" -F "description=Taken at the beach" -F "tags=beach,holiday,sunset"
 ```
 
 - List Images
 
 ```bash
-curl -X GET "http://localhost:8000/images" -H "accept: application/json"
+curl -X GET "http://localhost:8000/api/v1/images" -H "accept: application/json"
 ```
 
 - Get Images
 
 ```bash
-http://localhost:8000/images/{s3_key}
+http://localhost:8000/api/v1/images/{image_id}
 ```
