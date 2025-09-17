@@ -60,4 +60,28 @@ class S3Service(metaclass=SingletonMeta):
 # -------------------------
 class DynamooDBService(metaclass=SingletonMeta):
     def __init__(self):
-        print("initiaze dynamodb service")
+        session = boto3.session.Session(region_name=settings.aws_region)
+        kwargs = {
+            "aws_access_key_id": settings.aws_access_key_id,
+            "aws_secret_access_key": settings.aws_secret_access_key,
+        }
+        if settings.aws_endpoint_url:
+            kwargs["endpoint_url"] = settings.aws_endpoint_url
+
+        self.resource = session.resource("dynamodb", **kwargs)
+        log.info("Initialized DynamoDB resource")
+
+    def put_metadata(self, item: Dict[str, Any]):
+        table = self.resource.Table(settings.dynamodb_table)
+        table.put_item(Item=item)
+        log.debug("Inserted metadata %s", item.get("image_id"))
+
+    def get_metadata(self, image_id: str) -> Optional[Dict[str, Any]]:
+        table = self.resource.Table(settings.dynamodb_table)
+        resp = table.get_item(Key={"image_id": image_id})
+        return resp.get("Item")
+    
+    def delete_metadata(self, image_id: str):
+        table = self.resource.Table(settings.dynamodb_table)
+        table.delete_item(Key={"image_id": image_id})
+        log.debug("Deleted metadata %s", image_id)
