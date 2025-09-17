@@ -42,15 +42,14 @@ class S3Service(metaclass=SingletonMeta):
         )
         log.debug("Uploaded %s to s3://%s/%s", key, settings.s3_bucket, key)
 
-
     def generate_presigned_url(self, key: str, expires_in: Optional[int] = None) -> str:
-        expires = expires_in if expires_in is not None else settings.presign_expire_seconds
+        expires = expires_in or settings.presign_expire_seconds
         return self.client.generate_presigned_url(
             "get_object",
             Params={"Bucket": settings.s3_bucket, "Key": key},
             ExpiresIn=expires,
         )
-    
+
     def delete(self, key: str):
         self.client.delete_object(Bucket=settings.s3_bucket, Key=key)
         log.debug("Deleted s3://%s/%s", settings.s3_bucket, key)
@@ -58,7 +57,7 @@ class S3Service(metaclass=SingletonMeta):
 # -------------------------
 # DynamoDB Service
 # -------------------------
-class DynamooDBService(metaclass=SingletonMeta):
+class DynamoDBService(metaclass=SingletonMeta):
     def __init__(self):
         session = boto3.session.Session(region_name=settings.aws_region)
         kwargs = {
@@ -80,7 +79,7 @@ class DynamooDBService(metaclass=SingletonMeta):
         table = self.resource.Table(settings.dynamodb_table)
         resp = table.get_item(Key={"image_id": image_id})
         return resp.get("Item")
-    
+
     def delete_metadata(self, image_id: str):
         table = self.resource.Table(settings.dynamodb_table)
         table.delete_item(Key={"image_id": image_id})
