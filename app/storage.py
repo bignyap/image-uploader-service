@@ -1,5 +1,6 @@
 import boto3
 from typing import Optional, Dict, Any
+from botocore.exceptions import ClientError
 from .settings import settings
 import logging
 
@@ -32,6 +33,22 @@ class S3Service(metaclass=SingletonMeta):
 
         self.client = session.client("s3", **kwargs)
         log.info("Initialized S3 client")
+    
+        # Ensure bucket exists at initialization
+        self.ensure_bucket()
+
+    def ensure_bucket(self):
+        try:
+            self.client.head_bucket(Bucket=settings.s3_bucket)
+            log.debug("Bucket %s already exists", settings.s3_bucket)
+        except ClientError as e:
+            error_code = int(e.response["Error"]["Code"])
+            if error_code == 404:
+                self.client.create_bucket(Bucket=settings.s3_bucket)
+                log.info("Created bucket %s", settings.s3_bucket)
+            else:
+                log.error("Failed to check/create bucket: %s", e)
+                raise
 
     def upload(self, fileobj, key: str, content_type: str):
         self.client.upload_fileobj(
