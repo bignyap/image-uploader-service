@@ -5,6 +5,9 @@ from . import storage
 from .models import ImageMeta
 # from .settings import settings
 from datetime import datetime, timezone
+import uuid
+
+from .storage import S3Service, DynamoDBService
 
 log = logging.getLogger(__name__)
 
@@ -17,6 +20,8 @@ def save_image_and_meta(
     title: Optional[str],
     description: Optional[str],
     tags: List[str],
+    s3: S3Service,
+    db: DynamoDBService
 ) -> ImageMeta:
     # generate s3 key and metadata
     image = ImageMeta(
@@ -31,17 +36,15 @@ def save_image_and_meta(
         uploaded_at = datetime.now(timezone.utc),
     )
     # upload to s3
-    storage.upload_to_s3(fileobj=fileobj, key=image.s3_key, content_type=content_type)
+    s3.upload(fileobj=fileobj, key=image.s3_key, content_type=content_type)
 
     # persist metadata in dynamodb
     item = image.model_dump()
     # Dynamo needs uploaded_at as ISO string
     item["uploaded_at"] = item["uploaded_at"].isoformat()
-    storage.put_metadata(item)
+    db.put_metadata(item)
     log.info("Saved image metadata %s", image.image_id)
     return image
 
 def image_id_key() -> str:
-    # simple short id for key part
-    import uuid
     return str(uuid.uuid4())
