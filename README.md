@@ -6,18 +6,20 @@ This project implements a small image upload service using FastAPI, S3, and Dyna
 - Python 3.13+
 - Docker (for LocalStack)
 
-## Build the image-uploader docker image
+## Local Deployment
+
+### Build the image-uploader docker image
 ```bash
 docker build -t bignya/image-uploader .
 cp .env.sample .env
 ```
 
-## Running image-uploader
+### Running image-uploader
 ```bash
 docker compose down; docker compose up -d
 ```
 
-## Make curl requests
+### Make curl requests
 
 - Upload Image
 
@@ -35,4 +37,13 @@ curl -X GET "http://localhost:8000/api/v1/images" -H "accept: application/json"
 
 ```bash
 http://localhost:8000/api/v1/images/{image_id}
+```
+
+## Localstack API Gateway Deployment
+
+
+### Build the image-uploader docker image
+```bash
+docker compose -f lambda-compose.yaml down; docker compose -f lambda-compose.yaml up -d --build
+cp .env.sample .env
 ```
