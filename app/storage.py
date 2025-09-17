@@ -7,21 +7,9 @@ import logging
 log = logging.getLogger(__name__)
 
 # -------------------------
-# Singleton metaclass
-# -------------------------
-class SingletonMeta(type):
-    """Thread-safe Singleton metaclass."""
-    _instances = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super().__call__(*args, **kwargs)
-        return cls._instances[cls]
-
-# -------------------------
 # S3 Service
 # -------------------------
-class S3Service(metaclass=SingletonMeta):
+class S3Service:
     def __init__(self):
         session = boto3.session.Session(region_name=settings.aws_region)
         kwargs = {
@@ -74,7 +62,7 @@ class S3Service(metaclass=SingletonMeta):
 # -------------------------
 # DynamoDB Service
 # -------------------------
-class DynamoDBService(metaclass=SingletonMeta):
+class DynamoDBService:
     def __init__(self):
         session = boto3.session.Session(region_name=settings.aws_region)
         kwargs = {
@@ -86,6 +74,35 @@ class DynamoDBService(metaclass=SingletonMeta):
 
         self.resource = session.resource("dynamodb", **kwargs)
         log.info("Initialized DynamoDB resource")
+
+        # Ensure table exists at initialization
+        self.ensure_table()
+
+    # Refer here: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/create_table.html
+    def ensure_table(self):
+        try:
+            table = self.resource.Table(settings.dynamodb_table)
+            table.load()
+        except ClientError:
+            table = self.resource.create_table(
+                TableName=settings.dynamodb_table,
+                KeySchema=[{"AttributeName": "image_id", "KeyType": "HASH"}],
+                AttributeDefinitions=[
+                    {"AttributeName": "image_id", "AttributeType": "S"},
+                    {"AttributeName": "user_id", "AttributeType": "S"},
+                ],
+                GlobalSecondaryIndexes=[
+                    {
+                        "IndexName": "UserIndex",
+                        "KeySchema": [{"AttributeName": "user_id", "KeyType": "HASH"}],
+                        "Projection": {"ProjectionType": "ALL"},
+                        "ProvisionedThroughput": {"ReadCapacityUnits": 5, "WriteCapacityUnits": 5},
+                    }
+                ],
+                ProvisionedThroughput={"ReadCapacityUnits": 5, "WriteCapacityUnits": 5},
+            )
+            table.wait_until_exists()
+            log.info("Created table %s", settings.dynamodb_table)
 
     def put_metadata(self, item: Dict[str, Any]):
         table = self.resource.Table(settings.dynamodb_table)
