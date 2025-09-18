@@ -38,12 +38,3 @@ curl -X GET "http://localhost:8000/api/v1/images" -H "accept: application/json"
 ```bash
 http://localhost:8000/api/v1/images/{image_id}
 ```
-
-## Localstack API Gateway Deployment
-
-
-### Build the image-uploader docker image
-```bash
-docker compose -f lambda-compose.yaml down; docker compose -f lambda-compose.yaml up -d --build
-cp .env.sample .env
-```

@@ -6,7 +6,7 @@ services:
       - "4566:4566"   # LocalStack edge port (API Gateway, Lambda, S3, etc.)
       - "4510-4559:4510-4559"
     environment:
-      SERVICES: "lambda,apigateway,s3,dynamodb,iam"
+      SERVICES: "lambda,apigateway,s3,dynamodb,iam,logs"  # Added logs service
       DEBUG: 0
       LAMBDA_EXECUTOR: "docker-reuse"
       AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL}
