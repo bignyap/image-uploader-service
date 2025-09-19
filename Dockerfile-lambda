@@ -1,0 +1,16 @@
+FROM amazonlinux:2023
+
+RUN dnf install -y python3.12 python3.12-pip zip && dnf clean all
+
+WORKDIR /app
+
+COPY app/ ./app/
+COPY requirements.txt .
+
+RUN python3.12 -m pip install \
+    -r requirements.txt \
+    --target ./ \
+    --platform manylinux2014_x86_64 \
+    --only-binary=:all:
+
+RUN zip -r9 image-uploader.zip .

@@ -210,3 +210,13 @@ __marimo__/
 # Localstack
 volume
 debug.py
+image-uploader.zip
+
+# Terraform
+.terraform
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+.terraform.tfstate
+.terraform.tfstate.backup
+

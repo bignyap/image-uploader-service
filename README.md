@@ -2,11 +2,11 @@
 
 This project implements a small image upload service using FastAPI, S3, and DynamoDB. It is designed to run against LocalStack for local development.
 
-## Requirements
+## Local Deployment
+
+### Requirements
 - Python 3.13+
 - Docker (for LocalStack)
-
-## Local Deployment
 
 ### Build the image-uploader docker image
 ```bash
@@ -38,3 +38,14 @@ curl -X GET "http://localhost:8000/api/v1/images" -H "accept: application/json"
 ```bash
 http://localhost:8000/api/v1/images/{image_id}
 ```
+
+## Local Stack Deployment
+
+### Requirements
+- Python 3.13+
+- Docker (for LocalStack)
+- Terraform
+
+docker build -t bignya/image-uploader-builder -f Dockerfile-lambda .
+
+docker run --rm -v ${PWD}:/out bignya/image-uploader-builder sh -c "cp /app/image-uploader.zip /out/"
