@@ -24,6 +24,7 @@ def save_image_and_meta(
     description: Optional[str],
     tags: List[str]
 ) -> ImageMeta:
+    """Saves image to S3 and metadata to DynamoDB."""
     # generate s3 key and metadata
     image = ImageMeta(
         user_id = user_id,
@@ -48,6 +49,7 @@ def save_image_and_meta(
     return image
 
 def image_id_key() -> str:
+    """Generates a new unique image ID key."""
     return str(uuid.uuid4())
 
 
@@ -58,6 +60,7 @@ def fetch_images(
     limit:int = 50, 
     exclusive_start_key: Optional[Dict[str,str]] = None
 ):
+    """Fetches images from DynamoDB with optional filters."""
     filters = {}
     if user_id:
         filters["user_id"] = user_id
@@ -79,6 +82,7 @@ def fetch_images(
         return resp
     
 def get_image_meta(db: DynamoDBService, image_id: str):
+    """Gets image metadata from DynamoDB."""
     item = db.get_metadata(image_id)
     return item
 
@@ -87,6 +91,7 @@ def remove_image(
     s3: S3Service,
     image_id: str
 ):
+    """Removes image from S3 and metadata from DynamoDB."""
     item = get_image_meta(image_id)
     if not item:
         return False

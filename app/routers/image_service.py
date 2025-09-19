@@ -28,6 +28,7 @@ async def upload_image(
     db: DynamoDBService = Depends(get_dynamodb_service),
     s3: S3Service = Depends(get_s3_service)
 ):
+    """Uploads an image and its metadata."""
     # Split the tags
     tags_list = []
     if tags:
@@ -66,6 +67,7 @@ def list_images_handler(
     exclusive_start_key: Optional[str] = Query(None),
     db: DynamoDBService = Depends(get_dynamodb_service)
 ):
+    """Lists images with optional filters."""
     eks = None
     if exclusive_start_key:
         # expecting JSON-encoded dict for ExclusiveStartKey
@@ -100,6 +102,7 @@ def get_image(
     db: DynamoDBService = Depends(get_dynamodb_service),
     s3: S3Service = Depends(get_s3_service)
 ):
+    """Gets a presigned URL for an image."""
     meta = get_image_meta(db, image_id)
     if not meta:
         raise HTTPException(status_code=404, detail="image not found")
@@ -114,6 +117,7 @@ def delete_image(
     db: DynamoDBService = Depends(get_dynamodb_service),
     s3: S3Service = Depends(get_s3_service)
 ):
+    """Deletes an image and its metadata."""
     ok = remove_image(db, s3, image_id)
     if not ok:
         raise HTTPException(status_code=404, detail="image not found")

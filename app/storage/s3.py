@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 # -------------------------
 class S3Service:
     def __init__(self):
+        """Initializes the S3Service."""
         session = boto3.session.Session(region_name=settings.aws_region)
         kwargs = {
             "aws_access_key_id": settings.aws_access_key_id,
@@ -26,6 +27,7 @@ class S3Service:
         self.ensure_bucket()
 
     def ensure_bucket(self):
+        """Ensures the S3 bucket exists, creating it if necessary."""
         try:
             self.client.head_bucket(Bucket=settings.s3_bucket)
             log.debug("Bucket %s already exists", settings.s3_bucket)
@@ -39,6 +41,7 @@ class S3Service:
                 raise
 
     def upload(self, fileobj, key: str, content_type: str):
+        """Uploads a file to the S3 bucket."""
         self.client.upload_fileobj(
             Fileobj=fileobj,
             Bucket=settings.s3_bucket,
@@ -48,6 +51,7 @@ class S3Service:
         log.debug("Uploaded %s to s3://%s/%s", key, settings.s3_bucket, key)
 
     def generate_presigned_url(self, key: str, expires_in: Optional[int] = None) -> str:
+        """Generates a presigned URL for an S3 object."""
         expires = expires_in or settings.presign_expire_seconds
         url = self.client.generate_presigned_url(
             "get_object",
@@ -59,8 +63,10 @@ class S3Service:
         return url
 
     def delete(self, key: str):
+        """Deletes an object from the S3 bucket."""
         self.client.delete_object(Bucket=settings.s3_bucket, Key=key)
         log.debug("Deleted s3://%s/%s", settings.s3_bucket, key)
     
     def close(self):
+        """Closes the S3 client."""
         log.info("Closed S3 client")

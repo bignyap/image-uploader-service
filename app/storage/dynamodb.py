@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 # -------------------------
 class DynamoDBService:
     def __init__(self):
+        """Initializes the DynamoDBService."""
         session = boto3.session.Session(region_name=settings.aws_region)
         kwargs = {
             "aws_access_key_id": settings.aws_access_key_id,
@@ -27,6 +28,7 @@ class DynamoDBService:
 
     # Refer here: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/create_table.html
     def ensure_table(self):
+        """Ensures the DynamoDB table exists, creating it if necessary."""
         try:
             table = self.resource.Table(settings.dynamodb_table)
             table.load()
@@ -52,16 +54,19 @@ class DynamoDBService:
             log.info("Created table %s", settings.dynamodb_table)
 
     def put_metadata(self, item: Dict[str, Any]):
+        """Puts an item into the DynamoDB table."""
         table = self.resource.Table(settings.dynamodb_table)
         table.put_item(Item=item)
         log.debug("Inserted metadata %s", item.get("image_id"))
 
     def get_metadata(self, image_id: str) -> Optional[Dict[str, Any]]:
+        """Gets an item from the DynamoDB table."""
         table = self.resource.Table(settings.dynamodb_table)
         resp = table.get_item(Key={"image_id": image_id})
         return resp.get("Item")
 
     def delete_metadata(self, image_id: str):
+        """Deletes an item from the DynamoDB table."""
         table = self.resource.Table(settings.dynamodb_table)
         table.delete_item(Key={"image_id": image_id})
         log.debug("Deleted metadata %s", image_id)
@@ -72,6 +77,7 @@ class DynamoDBService:
         limit: int = 50,
         exclusive_start_key: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
+        """Scans the DynamoDB table with optional filters."""
         table = self.resource.Table(settings.dynamodb_table)
         scan_kwargs = {"Limit": limit}
         if exclusive_start_key:
@@ -88,4 +94,5 @@ class DynamoDBService:
         return table.scan(**scan_kwargs)
     
     def close(self):
+        """Closes the DynamoDB resource."""
         log.info("Closed DynamoDB resource")

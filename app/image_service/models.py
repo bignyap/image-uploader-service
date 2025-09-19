@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from uuid import uuid4
 
 def new_image_id() -> str:
+    """Generates a new unique image ID."""
     return str(uuid4())
 
 class ImageMeta(BaseModel):

@@ -14,6 +14,10 @@ log = logging.getLogger("image-service")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+        Async context manager for FastAPI application lifecycle events.
+        Initializes and closes resources (S3, DynamoDB) for the application.
+    """
     # Initialize resources
     app.state.s3 = S3Service()
     app.state.db = DynamoDBService()
