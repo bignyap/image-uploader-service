@@ -8,6 +8,7 @@ from app.storage.dynamodb import DynamoDBService
 from app.storage.s3 import S3Service
 from app.settings import settings
 from app.routers.image_service import router as image_router
+from app.exceptions import add_exception_handlers
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("image-service")
@@ -33,6 +34,9 @@ app = FastAPI(
     description="Image Uploader Service",
     root_path = "/api/v1"
 )
+
+# Add exception handlers
+add_exception_handlers(app)
 
 # CORS - Middleware
 app.add_middleware(

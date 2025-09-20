@@ -1,4 +1,3 @@
-
 from fastapi.testclient import TestClient
 from moto import mock_aws
 import pytest
@@ -84,9 +83,6 @@ def test_upload_image_missing_user_id(test_client: TestClient):
     # Then
     assert response.status_code == 422  # Unprocessable Entity
 
-    # Then
-    assert response.status_code == 422  # Unprocessable Entity
-
 # Test for listing images
 def test_list_images(test_client: TestClient):
     # Given
@@ -153,6 +149,7 @@ def test_get_non_existent_image(test_client: TestClient):
 
     # Then
     assert response.status_code == 404
+    assert response.json() == {"detail": "Image with ID 'non-existent-id' not found."}
 
 # Test for deleting an image
 def test_delete_image(test_client: TestClient):
@@ -177,3 +174,49 @@ def test_delete_non_existent_image(test_client: TestClient):
 
     # Then
     assert response.status_code == 404
+    assert response.json() == {"detail": "Image with ID 'non-existent-id' not found."}
+
+# Test for uploading an invalid image file
+def test_upload_invalid_image(test_client: TestClient):
+    # Given
+    user_id = "test-user"
+    file_content = b"this is not an image"
+    file = ("test.jpg", BytesIO(file_content), "image/jpeg")
+
+    # When
+    response = test_client.post(
+        "/images",
+        data={"user_id": user_id},
+        files={"file": file},
+    )
+
+    # Then
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid image file"}
+
+# Test for uploading a file with an unsupported content type
+def test_upload_unsupported_content_type(test_client: TestClient):
+    # Given
+    user_id = "test-user"
+    file_content = b"test image data"
+    file = ("test.txt", BytesIO(file_content), "text/plain")
+
+    # When
+    response = test_client.post(
+        "/images",
+        data={"user_id": user_id},
+        files={"file": file},
+    )
+
+    # Then
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Unsupported content type: text/plain"}
+
+# Test for invalid exclusive_start_key
+def test_list_images_invalid_exclusive_start_key(test_client: TestClient):
+    # When
+    response = test_client.get("/images?exclusive_start_key=invalid-json")
+
+    # Then
+    assert response.status_code == 400
+    assert response.json() == {"detail": "invalid exclusive_start_key"}

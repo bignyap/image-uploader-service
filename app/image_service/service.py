@@ -4,11 +4,13 @@ import logging
 from datetime import datetime, timezone
 import uuid
 from boto3.dynamodb.conditions import Attr
+from botocore.exceptions import BotoCoreError, ClientError
 
 from app.storage.dynamodb import DynamoDBService
 from app.storage.s3 import S3Service
 from app.image_service.models import ImageMeta
 from app.settings import settings
+from app.exceptions import S3UploadException, DynamoDBException, ImageNotFoundException
 
 log = logging.getLogger(__name__)
 
@@ -38,13 +40,22 @@ def save_image_and_meta(
         uploaded_at = datetime.now(timezone.utc),
     )
     # upload to s3
-    s3.upload(fileobj=fileobj, key=image.s3_key, content_type=content_type)
+    try:
+        s3.upload(fileobj=fileobj, key=image.s3_key, content_type=content_type)
+    except (BotoCoreError, ClientError) as e:
+        log.error(f"S3 upload failed: {e}")
+        raise S3UploadException(f"Failed to upload image to S3: {e}")
 
     # persist metadata in dynamodb
     item = image.model_dump()
     # Dynamo needs uploaded_at as ISO string
     item["uploaded_at"] = item["uploaded_at"].isoformat()
-    db.put_metadata(item)
+    try:
+        db.put_metadata(item)
+    except (BotoCoreError, ClientError) as e:
+        log.error(f"DynamoDB put_metadata failed: {e}")
+        raise DynamoDBException(f"Failed to save image metadata: {e}")
+
     log.info("Saved image metadata %s", image.image_id)
     return image
 
@@ -61,30 +72,38 @@ def fetch_images(
     exclusive_start_key: Optional[Dict[str,str]] = None
 ):
     """Fetches images from DynamoDB with optional filters."""
-    filters = {}
-    if user_id:
-        filters["user_id"] = user_id
-    if tag:
-        # Dynamo doesn't support searching inside list easily without GSI; scan with filter expression on tags contains
-        # We'll do a scan with condition contains(tags, tag)
-        table = db.resource.Table(settings.dynamodb_table)
-        scan_kwargs = {"Limit": limit}
-        if exclusive_start_key:
-            scan_kwargs["ExclusiveStartKey"] = exclusive_start_key
-        scan_kwargs["FilterExpression"] = Attr("tags").contains(tag)
+    try:
+        filters = {}
         if user_id:
-            scan_kwargs["FilterExpression"] = scan_kwargs["FilterExpression"] & Attr("user_id").eq(user_id)
-        resp = table.scan(**scan_kwargs)
-        items = resp.get("Items", [])
-        return {"Items": items, "LastEvaluatedKey": resp.get("LastEvaluatedKey")}
-    else:
-        resp = db.scan_metadata(filter_expression=filters if filters else None, limit=limit, exclusive_start_key=exclusive_start_key)
-        return resp
+            filters["user_id"] = user_id
+        if tag:
+            table = db.resource.Table(settings.dynamodb_table)
+            scan_kwargs = {"Limit": limit}
+            if exclusive_start_key:
+                scan_kwargs["ExclusiveStartKey"] = exclusive_start_key
+            scan_kwargs["FilterExpression"] = Attr("tags").contains(tag)
+            if user_id:
+                scan_kwargs["FilterExpression"] = scan_kwargs["FilterExpression"] & Attr("user_id").eq(user_id)
+            resp = table.scan(**scan_kwargs)
+            items = resp.get("Items", [])
+            return {"Items": items, "LastEvaluatedKey": resp.get("LastEvaluatedKey")}
+        else:
+            resp = db.scan_metadata(filter_expression=filters if filters else None, limit=limit, exclusive_start_key=exclusive_start_key)
+            return resp
+    except (BotoCoreError, ClientError) as e:
+        log.error(f"DynamoDB fetch_images failed: {e}")
+        raise DynamoDBException(f"Failed to fetch images: {e}")
     
 def get_image_meta(db: DynamoDBService, image_id: str):
     """Gets image metadata from DynamoDB."""
-    item = db.get_metadata(image_id)
-    return item
+    try:
+        item = db.get_metadata(image_id)
+        if not item:
+            raise ImageNotFoundException(image_id)
+        return item
+    except (BotoCoreError, ClientError) as e:
+        log.error(f"DynamoDB get_image_meta failed: {e}")
+        raise DynamoDBException(f"Failed to get image metadata: {e}")
 
 def remove_image( 
     db: DynamoDBService,
@@ -92,11 +111,20 @@ def remove_image(
     image_id: str
 ):
     """Removes image from S3 and metadata from DynamoDB."""
-    item = get_image_meta(image_id)
+    item = get_image_meta(db, image_id)
     if not item:
-        return False
+        raise ImageNotFoundException(image_id)
+    
     s3_key = item.get("s3_key")
     if s3_key:
-        s3.delete_from_s3(s3_key)
-    db.delete_metadata(image_id)
+        try:
+            s3.delete_from_s3(s3_key)
+        except (BotoCoreError, ClientError) as e:
+            log.error(f"S3 delete_from_s3 failed: {e}")
+            raise S3UploadException(f"Failed to delete image from S3: {e}")
+    try:
+        db.delete_metadata(image_id)
+    except (BotoCoreError, ClientError) as e:
+        log.error(f"DynamoDB delete_metadata failed: {e}")
+        raise DynamoDBException(f"Failed to delete image metadata: {e}")
     return True
