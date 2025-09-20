@@ -31,17 +31,18 @@ ALLOWED_IMAGE_TYPES = {
 }
 
 def validate_image_bytes(file_bytes: bytes, content_type: str) -> str:
-    """
-    Validate that the uploaded file is a real image.
-    - For raster images: Pillow verify()
-    - For SVG: simple XML parse
-    """
+    """Validate that the uploaded file is a real image."""
     if content_type in {"image/png", "image/jpeg", "image/gif", "image/webp"}:
         try:
             img = Image.open(BytesIO(file_bytes))
-            img.verify()
-            # Map to proper MIME type
-            mime_type = Image.MIME.get(img.format)
+            img.load()
+            MIME_MAP = {
+                "JPEG": "image/jpeg",
+                "PNG": "image/png",
+                "GIF": "image/gif",
+                "WEBP": "image/webp",
+            }
+            mime_type = MIME_MAP.get(img.format.upper())
             if mime_type not in ALLOWED_IMAGE_TYPES:
                 raise InvalidImageException(f"Unsupported image type: {mime_type}")
             return mime_type
@@ -49,8 +50,10 @@ def validate_image_bytes(file_bytes: bytes, content_type: str) -> str:
             raise InvalidImageException("Invalid image file")
     elif content_type == "image/svg+xml":
         try:
-            ET.fromstring(file_bytes.decode("utf-8"))
-            return "image/svg+xml"
+            root = ET.fromstring(file_bytes.decode("utf-8"))
+            if root.tag.lower().endswith("svg"):
+                return "image/svg+xml"
+            raise InvalidImageException("Invalid SVG root element")
         except Exception:
             raise InvalidImageException("Invalid SVG file")
     else:
