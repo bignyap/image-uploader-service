@@ -174,7 +174,7 @@ output "api_id" {
 }
 
 output "invoke_url" {
-  value = "http://localhost:4566/_aws/execute-api/${aws_api_gateway_rest_api.fastapi.id}/local/api/v1/images"
+  value = "http://localhost:4566/_aws/execute-api/${aws_api_gateway_rest_api.fastapi.id}/local"
 }
 
 output "lambda_function_name" {
