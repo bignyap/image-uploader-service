@@ -76,6 +76,7 @@ docker compose -f lambda-compose.yaml down; docker compose -f lambda-compose.yam
 #### Deploy with Terraform
 ```bash
 # Initialize and apply Terraform configuration
+cd terraform
 terraform init
 terraform plan
 terraform apply -auto-approve
