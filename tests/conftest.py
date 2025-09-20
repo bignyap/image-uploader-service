@@ -1,4 +1,3 @@
-
 import os
 import pytest
 from moto import mock_aws
@@ -9,7 +8,7 @@ from app.main import app
 from app.storage.s3 import S3Service
 from app.storage.dynamodb import DynamoDBService
 
-# Set dummy AWS credentials for moto
+# Dummy AWS credentials for moto
 os.environ["AWS_ACCESS_KEY_ID"] = "testing"
 os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
 os.environ["AWS_SECURITY_TOKEN"] = "testing"
@@ -27,12 +26,14 @@ def aws_credentials():
     os.environ["AWS_SECURITY_TOKEN"] = "testing"
     os.environ["AWS_SESSION_TOKEN"] = "testing"
 
+
 @pytest.fixture(scope="function")
 def s3_mock(aws_credentials):
     with mock_aws():
         s3 = boto3.client("s3", region_name="us-east-1")
         s3.create_bucket(Bucket="test-bucket")
         yield s3
+
 
 @pytest.fixture(scope="function")
 def dynamodb_mock(aws_credentials):
@@ -57,12 +58,12 @@ def dynamodb_mock(aws_credentials):
         )
         yield dynamodb
 
+
 @pytest.fixture(scope="function")
 def test_client(s3_mock, dynamodb_mock):
-
     # Replace the original services with mocked ones
     app.state.s3 = S3Service()
     app.state.db = DynamoDBService()
-    
+
     with TestClient(app) as client:
         yield client
