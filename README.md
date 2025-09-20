@@ -5,7 +5,6 @@ This project implements a small image upload service using FastAPI, S3, and Dyna
 ## Requirements
 - Python 3.13+
 - Docker and Docker Compose
-- Terraform (for LocalStack deployment)
 
 ## Deployment Options
 
@@ -26,6 +25,11 @@ cp .env.sample .env
 ```bash
 # Start the services
 docker compose down; docker compose up -d
+```
+
+#### API Docs
+```bash
+localhost:8000/docs
 ```
 
 #### Testing the API
@@ -64,6 +68,9 @@ docker build -t bignya/image-uploader-builder -f Dockerfile-lambda .
 
 # Extract the deployment package
 docker run --rm -v ${PWD}:/out bignya/image-uploader-builder sh -c "cp /app/image-uploader.zip /out/"
+
+# Run the localstack service
+docker compose -f lambda-compose.yaml down; docker compose -f lambda-compose.yaml up -d
 ```
 
 #### Deploy with Terraform
