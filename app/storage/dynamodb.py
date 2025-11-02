@@ -12,19 +12,22 @@ log = logging.getLogger(__name__)
 class DynamoDBService:
     def __init__(self):
         """Initializes the DynamoDBService."""
+        import os
         session = boto3.session.Session(region_name=settings.aws_region)
         kwargs = {
             "aws_access_key_id": settings.aws_access_key_id,
             "aws_secret_access_key": settings.aws_secret_access_key,
         }
-        if settings.aws_endpoint_url:
+        # Only set endpoint_url if not in test mode (moto will handle it)
+        if settings.aws_endpoint_url and not os.environ.get("TESTING"):
             kwargs["endpoint_url"] = settings.aws_endpoint_url
 
         self.resource = session.resource("dynamodb", **kwargs)
         log.info("Initialized DynamoDB resource")
 
-        # Ensure table exists at initialization
-        self.ensure_table()
+        # Ensure table exists at initialization (skip if in test environment with moto)
+        if settings.aws_endpoint_url and not os.environ.get("TESTING"):
+            self.ensure_table()
 
     # Refer here: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/create_table.html
     def ensure_table(self):

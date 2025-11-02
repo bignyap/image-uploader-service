@@ -33,6 +33,7 @@ class ImageItem(BaseModel):
 
 class UploadResponse(BaseModel):
     image_id: str
+    user_id: str
     s3_key: str
     filename: str
     uploaded_at: datetime

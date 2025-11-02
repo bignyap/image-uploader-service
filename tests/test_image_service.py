@@ -3,6 +3,7 @@ import pytest
 from PIL import Image
 
 from app.image_service import service
+from app.routers.image_service import validate_image_bytes
 from app.exceptions import InvalidImageException, ImageNotFoundException
 
 
@@ -20,30 +21,30 @@ def make_png_bytes():
 
 def test_validate_png_bytes_ok():
     data = make_png_bytes()
-    result = service.validate_image_bytes(data, "image/png")
+    result = validate_image_bytes(data, "image/png")
     assert result == "image/png"
 
 
 def test_validate_invalid_bytes_raises():
     with pytest.raises(InvalidImageException):
-        service.validate_image_bytes(b"notanimage", "image/png")
+        validate_image_bytes(b"notanimage", "image/png")
 
 
 def test_validate_svg_ok():
     svg_data = b'<svg xmlns="http://www.w3.org/2000/svg"></svg>'
-    result = service.validate_image_bytes(svg_data, "image/svg+xml")
+    result = validate_image_bytes(svg_data, "image/svg+xml")
     assert result == "image/svg+xml"
 
 
 def test_validate_svg_invalid_root():
     bad_svg = b'<not_svg></not_svg>'
     with pytest.raises(InvalidImageException):
-        service.validate_image_bytes(bad_svg, "image/svg+xml")
+        validate_image_bytes(bad_svg, "image/svg+xml")
 
 
 def test_validate_unsupported_type():
     with pytest.raises(InvalidImageException):
-        service.validate_image_bytes(b"fake", "application/pdf")
+        validate_image_bytes(b"fake", "application/pdf")
 
 
 # ------------------------------
@@ -145,7 +146,7 @@ def test_remove_image_success(mocker):
     mock_db.get_metadata.return_value = {"image_id": "1", "s3_key": "k"}
     result = service.remove_image(mock_db, mock_s3, "1")
     assert result is True
-    mock_s3.delete_from_s3.assert_called_once()
+    mock_s3.delete.assert_called_once()
     mock_db.delete_metadata.assert_called_once()
 
 

@@ -3,10 +3,10 @@ import pytest
 from moto import mock_aws
 from fastapi.testclient import TestClient
 import boto3
+import importlib
 
-from app.main import app
-from app.storage.s3 import S3Service
-from app.storage.dynamodb import DynamoDBService
+# Set test environment variable BEFORE importing app modules
+os.environ["TESTING"] = "true"
 
 # Dummy AWS credentials for moto
 os.environ["AWS_ACCESS_KEY_ID"] = "testing"
@@ -14,8 +14,18 @@ os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
 os.environ["AWS_SECURITY_TOKEN"] = "testing"
 os.environ["AWS_SESSION_TOKEN"] = "testing"
 os.environ["AWS_REGION"] = "us-east-1"
-os.environ["S3_BUCKET"] = "test-bucket"
-os.environ["DYNAMODB_TABLE"] = "test-table"
+os.environ["S3_BUCKET"] = "image-service-bucket"
+os.environ["DYNAMODB_TABLE"] = "Images"
+# Clear the AWS_ENDPOINT_URL so moto mocks are used instead of localstack
+os.environ.pop("AWS_ENDPOINT_URL", None)
+
+# Import settings module and reload it to pick up the cleared AWS_ENDPOINT_URL
+from app import settings as settings_module
+importlib.reload(settings_module)
+
+from app.main import app
+from app.storage.s3 import S3Service
+from app.storage.dynamodb import DynamoDBService
 
 
 @pytest.fixture(scope="function")
@@ -28,19 +38,21 @@ def aws_credentials():
 
 
 @pytest.fixture(scope="function")
-def s3_mock(aws_credentials):
+def test_client(aws_credentials):
+    # Reload settings to pick up the cleared AWS_ENDPOINT_URL
+    import importlib
+    from app import settings as settings_module
+    importlib.reload(settings_module)
+
     with mock_aws():
+        # Create S3 bucket
         s3 = boto3.client("s3", region_name="us-east-1")
-        s3.create_bucket(Bucket="test-bucket")
-        yield s3
+        s3.create_bucket(Bucket="image-service-bucket")
 
-
-@pytest.fixture(scope="function")
-def dynamodb_mock(aws_credentials):
-    with mock_aws():
+        # Create DynamoDB table
         dynamodb = boto3.client("dynamodb", region_name="us-east-1")
         dynamodb.create_table(
-            TableName="test-table",
+            TableName="Images",
             KeySchema=[{"AttributeName": "image_id", "KeyType": "HASH"}],
             AttributeDefinitions=[
                 {"AttributeName": "image_id", "AttributeType": "S"},
@@ -56,14 +68,14 @@ def dynamodb_mock(aws_credentials):
             ],
             ProvisionedThroughput={"ReadCapacityUnits": 5, "WriteCapacityUnits": 5},
         )
-        yield dynamodb
 
+        # Create services within the moto context
+        s3_service = S3Service()
+        db_service = DynamoDBService()
 
-@pytest.fixture(scope="function")
-def test_client(s3_mock, dynamodb_mock):
-    # Replace the original services with mocked ones
-    app.state.s3 = S3Service()
-    app.state.db = DynamoDBService()
+        # Replace the original services with mocked ones
+        app.state.s3 = s3_service
+        app.state.db = db_service
 
-    with TestClient(app) as client:
-        yield client
+        with TestClient(app) as client:
+            yield client

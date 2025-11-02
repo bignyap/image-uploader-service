@@ -1,17 +1,20 @@
 import pytest
+import json
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 from app import exceptions
 
 
 @pytest.mark.asyncio
-async def test_api_exception_handler(monkeypatch):
+async def test_api_exception_handler():
     exc = exceptions.ImageNotFoundException("123")
     request = Request(scope={"type": "http"})
     response: JSONResponse = await exceptions.api_exception_handler(request, exc)
 
     assert response.status_code == 404
-    assert response.json() == {"detail": "Image with ID '123' not found."}
+    # JSONResponse body is bytes, need to decode and parse
+    body = json.loads(response.body.decode())
+    assert body == {"detail": "Image with ID '123' not found."}
 
 
 @pytest.mark.asyncio
@@ -21,7 +24,8 @@ async def test_http_exception_handler():
     response: JSONResponse = await exceptions.http_exception_handler(request, exc)
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Forbidden"}
+    body = json.loads(response.body.decode())
+    assert body == {"detail": "Forbidden"}
 
 
 @pytest.mark.asyncio
@@ -31,7 +35,8 @@ async def test_generic_exception_handler():
     response: JSONResponse = await exceptions.generic_exception_handler(request, exc)
 
     assert response.status_code == 500
-    assert response.json() == {"detail": "An unexpected error occurred."}
+    body = json.loads(response.body.decode())
+    assert body == {"detail": "An unexpected error occurred."}
 
 
 def test_custom_exceptions_inherit_api_exception():

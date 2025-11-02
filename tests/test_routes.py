@@ -51,8 +51,7 @@ def test_get_and_delete_image(test_client):
 
     # delete
     delete = test_client.delete(f"/images/{img_id}")
-    assert delete.status_code == 200
-    assert delete.json()["status"] == "deleted"
+    assert delete.status_code == 204
 
 
 def test_get_nonexistent_image(test_client):
@@ -79,5 +78,5 @@ def test_list_images(test_client):
     resp = test_client.get("/images", params={"user_id": "list1"})
     assert resp.status_code == 200
     body = resp.json()
-    assert "Items" in body
-    assert len(body["Items"]) >= 2
+    assert "images" in body
+    assert len(body["images"]) >= 2

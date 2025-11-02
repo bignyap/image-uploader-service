@@ -51,9 +51,13 @@ def validate_image_bytes(file_bytes: bytes, content_type: str) -> str:
     elif content_type == "image/svg+xml":
         try:
             root = ET.fromstring(file_bytes.decode("utf-8"))
-            if root.tag.lower().endswith("svg"):
+            # Check if root tag is svg (with or without namespace)
+            tag_name = root.tag.split("}")[-1].lower() if "}" in root.tag else root.tag.lower()
+            if tag_name == "svg":
                 return "image/svg+xml"
             raise InvalidImageException("Invalid SVG root element")
+        except InvalidImageException:
+            raise
         except Exception:
             raise InvalidImageException("Invalid SVG file")
     else:
@@ -101,6 +105,7 @@ async def upload_image(
     )
     return UploadResponse(
         image_id=image.image_id,
+        user_id=image.user_id,
         s3_key=image.s3_key,
         filename=image.filename,
         uploaded_at=image.uploaded_at,
@@ -146,19 +151,29 @@ def list_images_handler(
     import json
     return ListImagesResponse(images=images, next_token=json.dumps(next_token) if next_token else None)
 
-@router.get("/{image_id}")
+@router.get("/{image_id}", response_model=ImageItem)
 def get_image(
     image_id: str,
     db: DynamoDBService = Depends(get_dynamodb_service),
     s3: S3Service = Depends(get_s3_service)
 ):
-    """Gets a presigned URL for an image."""
+    """Gets image metadata."""
     meta = get_image_meta(db, image_id)
     if not meta:
         raise ImageNotFoundException(image_id)
 
-    url = s3.generate_presigned_url(meta["s3_key"])
-    return RedirectResponse(url)
+    return ImageItem(
+        image_id=meta["image_id"],
+        user_id=meta["user_id"],
+        title=meta.get("title"),
+        description=meta.get("description"),
+        tags=meta.get("tags", []),
+        filename=meta["filename"],
+        content_type=meta["content_type"],
+        size=int(meta.get("size", 0)),
+        s3_key=meta["s3_key"],
+        uploaded_at=datetime.fromisoformat(meta["uploaded_at"]),
+    )
 
 @router.delete("/{image_id}", status_code=204)
 def delete_image(

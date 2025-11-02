@@ -12,19 +12,22 @@ log = logging.getLogger(__name__)
 class S3Service:
     def __init__(self):
         """Initializes the S3Service."""
+        import os
         session = boto3.session.Session(region_name=settings.aws_region)
         kwargs = {
             "aws_access_key_id": settings.aws_access_key_id,
             "aws_secret_access_key": settings.aws_secret_access_key,
         }
-        if settings.aws_endpoint_url:
+        # Only set endpoint_url if not in test mode (moto will handle it)
+        if settings.aws_endpoint_url and not os.environ.get("TESTING"):
             kwargs["endpoint_url"] = settings.aws_endpoint_url
 
         self.client = session.client("s3", **kwargs)
         log.info("Initialized S3 client")
-    
-        # Ensure bucket exists at initialization
-        self.ensure_bucket()
+
+        # Ensure bucket exists at initialization (skip if in test environment with moto)
+        if settings.aws_endpoint_url and not os.environ.get("TESTING"):
+            self.ensure_bucket()
 
     def ensure_bucket(self):
         """Ensures the S3 bucket exists, creating it if necessary."""

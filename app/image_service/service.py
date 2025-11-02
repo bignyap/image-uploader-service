@@ -118,9 +118,9 @@ def remove_image(
     s3_key = item.get("s3_key")
     if s3_key:
         try:
-            s3.delete_from_s3(s3_key)
+            s3.delete(s3_key)
         except (BotoCoreError, ClientError) as e:
-            log.error(f"S3 delete_from_s3 failed: {e}")
+            log.error(f"S3 delete failed: {e}")
             raise S3UploadException(f"Failed to delete image from S3: {e}")
     try:
         db.delete_metadata(image_id)
