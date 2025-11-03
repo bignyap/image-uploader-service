@@ -80,3 +80,61 @@ def test_list_images(test_client):
     body = resp.json()
     assert "images" in body
     assert len(body["images"]) >= 2
+
+
+# ------------------------------
+# /images/{id}/download [GET presigned URL]
+# ------------------------------
+
+def test_get_presigned_url(test_client):
+    # upload an image first
+    data = make_png_bytes()
+    files = {"file": ("download.png", data, "image/png")}
+    upload = test_client.post("/images", data={"user_id": "u3"}, files=files)
+    img_id = upload.json()["image_id"]
+
+    # get presigned URL
+    resp = test_client.get(f"/images/{img_id}/download")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "download_url" in body
+    assert "image_id" in body
+    assert body["image_id"] == img_id
+    assert "expires_in" in body
+    # Presigned URL should contain S3 bucket and key
+    assert "image-service-bucket" in body["download_url"]
+
+
+def test_get_presigned_url_with_custom_expiry(test_client):
+    # upload an image first
+    data = make_png_bytes()
+    files = {"file": ("download.png", data, "image/png")}
+    upload = test_client.post("/images", data={"user_id": "u4"}, files=files)
+    img_id = upload.json()["image_id"]
+
+    # get presigned URL with custom expiry (3600 seconds = 1 hour)
+    resp = test_client.get(f"/images/{img_id}/download", params={"expires_in": 3600})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["expires_in"] == 3600
+
+
+def test_get_presigned_url_nonexistent_image(test_client):
+    resp = test_client.get("/images/nonexistent/download")
+    assert resp.status_code == 404
+
+
+def test_get_presigned_url_invalid_expiry(test_client):
+    # upload an image first
+    data = make_png_bytes()
+    files = {"file": ("download.png", data, "image/png")}
+    upload = test_client.post("/images", data={"user_id": "u5"}, files=files)
+    img_id = upload.json()["image_id"]
+
+    # try with expiry too short (less than 60 seconds)
+    resp = test_client.get(f"/images/{img_id}/download", params={"expires_in": 30})
+    assert resp.status_code == 422  # Validation error
+
+    # try with expiry too long (more than 86400 seconds)
+    resp = test_client.get(f"/images/{img_id}/download", params={"expires_in": 100000})
+    assert resp.status_code == 422  # Validation error
